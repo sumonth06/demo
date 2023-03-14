@@ -12,7 +12,8 @@ pipeline {
       steps{
         script{
           echo "script started  ......................."
-          sh "git checkout ${Branch}"
+          checkout([$class: 'GitSCM', branches: [[name: "${Branch}"]], userRemoteConfigs: [[credentialsId: 'your-credential-id', url: 'git-repo-url']]])
+
           sh "git pull"
           def sout= sh (
               // script: "find . -type d -name '${environment_name}s' | find . -type d -name '${aws_region}'",
@@ -44,13 +45,8 @@ pipeline {
         }                   
       }
     }
-    stage('Confirm files commit & creating s3 bucket') {
-    steps {
-      script {
-        def userInput = input(id: 'confirm', message: 'commit files?', parameters: [ [$class: 'BooleanParameterDefinition', defaultValue: false, description: 'commit files', name: 'confirm'] ])
-        }
-      }
-    }
+   input message: 'Commit files?', ok: 'Proceed', submitter: 'user', parameters: [booleanParam(defaultValue: false, description: 'Commit files?', name: 'commit')]
+
     stage('S3 bucket'){
       steps{
         script{
@@ -59,9 +55,15 @@ pipeline {
             // sh '''
             //   source ./init_s3.sh ${aws_accountnumber} ${rolename} &>outputfile.out
             // '''
+            
+}
+
             for (s3_txt in texts) {
               echo "creating s3 bucket ${s3_txt}"
-              sh"source ./init_s3.sh ${aws_accountnumber} ${rolename} ${s3_txt} ${aws_region} &>outputfile.out"
+              withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'aws-credentials-id', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+    sh"source ./init_s3.sh ${aws_accountnumber} ${rolename} ${s3_txt} ${aws_region} &>outputfile.out"
+}
+
               // sh"aws s3api create-bucket --bucket ${s3_txt} --region ${region} --create-bucket-configuration LocationConstraint=${region}"
               // '''
             }
